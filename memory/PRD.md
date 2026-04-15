@@ -10,31 +10,33 @@ Build a modern AI-powered web application called "FairCheck AI – Bias Detectio
 
 ## Core Requirements
 - CSV upload with drag & drop
-- Sample dataset for demo
-- Bias analysis (statistical parity + disparate impact ratio)
-- Fairness score (0-100)
-- Interactive charts (Gender vs Hired, Income vs Selection)
+- Sample dataset for demo (24 records)
+- Multi-dimensional bias analysis (Gender, Income, Age, Education)
+- Fairness score (0-100) averaging all dimensions
+- Interactive charts for all 4 bias dimensions
 - Bias alerts and AI-generated insights
-- Export reports (PDF/CSV)
+- Export reports (PDF/CSV) with all dimensions
+- Historical analysis tracking with compare mode
+- Live Demo Walkthrough for presentations
 - Creators/Innovators section
 
 ## What's Been Implemented
 - [2026-04-15] MVP: Full homepage, analysis page, bias detection engine, charts, fairness scoring
 - [2026-04-15] Feature: Export PDF/CSV reports at bottom of analysis page
-- [2026-04-15] Feature: "Meet the Innovators" section with Gowtham K & Srushti B.S profiles
-- [2026-04-15] Polish: Smoother animations, custom scrollbar, enhanced hover effects
+- [2026-04-15] Feature: "Meet the Innovators" section (Gowtham K & Srushti B.S)
+- [2026-04-15] Feature: Age & Education bias dimensions with charts and alerts
+- [2026-04-15] Feature: Historical analysis tracking (/history page)
+- [2026-04-15] Feature: Compare Mode - side-by-side report comparison (/compare page)
+- [2026-04-15] Feature: Live Demo Walkthrough auto-scroll button for presentations
+- [2026-04-15] Polish: Smoother animations, custom scrollbar, professional styling
 
-## User Personas
-- Hackathon judges evaluating the prototype
-- HR teams analyzing hiring fairness
-- Data scientists reviewing bias in datasets
-
-## Prioritized Backlog
-- P0: All completed
-- P1: Historical analysis tracking, more bias metrics (age, education)
-- P2: User accounts/authentication, team collaboration features
+## Pages
+1. Homepage (/) - Hero, Features, Innovators, About AI Bias, Footer
+2. Analysis (/analysis) - Upload CSV, Dashboard, Insights, Export
+3. History (/history) - Past analyses with compare mode
+4. Compare (/compare) - Side-by-side report comparison
 
 ## Next Tasks
-- Add more bias dimensions (age, race, education level analysis)
-- Implement historical tracking of analyses over time
-- Add comparison mode for before/after bias mitigation
+- Add downloadable sample CSV file
+- Implement real-time collaboration features
+- Add custom column mapping for diverse CSV formats
