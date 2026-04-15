@@ -171,8 +171,11 @@ async def analyze_csv(file: UploadFile = File(...)):
     
     except pd.errors.EmptyDataError:
         raise HTTPException(status_code=400, detail="Empty CSV file")
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing CSV: {str(e)}")
+        logger.error(f"Error processing CSV: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid CSV file format: {str(e)}")
 
 @api_router.get("/sample-dataset", response_model=SampleDatasetResponse)
 async def get_sample_dataset():
