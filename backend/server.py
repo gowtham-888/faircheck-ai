@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException
+from fastapi.responses import StreamingResponse, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,6 +13,12 @@ from datetime import datetime, timezone
 import pandas as pd
 import io
 import numpy as np
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -37,6 +44,13 @@ class BiasAnalysisResult(BaseModel):
 class SampleDatasetResponse(BaseModel):
     data: List[Dict[str, Any]]
     columns: List[str]
+
+class ExportRequest(BaseModel):
+    fairness_score: float
+    gender_stats: Dict[str, Any]
+    income_stats: Dict[str, Any]
+    bias_alerts: List[str]
+    insights: List[str]
 
 def calculate_fairness_score(gender_disparity: float, income_disparity: float) -> float:
     """
@@ -140,6 +154,197 @@ def analyze_bias(df: pd.DataFrame) -> BiasAnalysisResult:
         insights=insights
     )
 
+def generate_pdf_report(data: ExportRequest) -> bytes:
+    """
+    Generate PDF report from analysis data
+    """
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#00F5FF'),
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor=colors.HexColor('#7B61FF'),
+        spaceAfter=12,
+        spaceBefore=20,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Title
+    story.append(Paragraph("FairCheck AI - Bias Analysis Report", title_style))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Report Date
+    date_text = f"Generated: {datetime.now(timezone.utc).strftime('%B %d, %Y at %H:%M UTC')}"
+    story.append(Paragraph(date_text, styles['Normal']))
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Fairness Score Section
+    story.append(Paragraph("Overall Fairness Score", heading_style))
+    score_color = colors.HexColor('#00F5FF') if data.fairness_score >= 80 else \
+                  colors.HexColor('#7B61FF') if data.fairness_score >= 50 else \
+                  colors.HexColor('#FF4D6D')
+    
+    score_data = [[
+        Paragraph(f"<font size=36 color='{score_color.hexval()}'><b>{data.fairness_score}</b></font>", styles['Normal']),
+        Paragraph("<b>Interpretation:</b><br/>" + 
+                 ("Excellent fairness" if data.fairness_score >= 80 else 
+                  "Moderate fairness" if data.fairness_score >= 50 else 
+                  "Requires immediate attention"), styles['Normal'])
+    ]]
+    
+    score_table = Table(score_data, colWidths=[2*inch, 4*inch])
+    score_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8F9FA')),
+        ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('PADDING', (0, 0), (-1, -1), 12),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#E0E0E0')),
+    ]))
+    story.append(score_table)
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Gender Analysis
+    if data.gender_stats.get('chart_data'):
+        story.append(Paragraph("Gender-Based Hiring Analysis", heading_style))
+        gender_data = [['Gender', 'Hired', 'Not Hired', 'Hiring Rate']]
+        for item in data.gender_stats['chart_data']:
+            gender_data.append([
+                item['gender'],
+                str(item['hired']),
+                str(item['not_hired']),
+                f"{item['rate']:.1f}%"
+            ])
+        
+        gender_table = Table(gender_data, colWidths=[1.5*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+        gender_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#00F5FF')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(gender_table)
+        story.append(Paragraph(f"<i>Disparity Level: {data.gender_stats['disparity']*100:.1f}%</i>", styles['Normal']))
+        story.append(Spacer(1, 0.2*inch))
+    
+    # Income Analysis
+    if data.income_stats.get('chart_data'):
+        story.append(Paragraph("Income-Based Hiring Analysis", heading_style))
+        income_data = [['Income Bracket', 'Hired', 'Not Hired', 'Hiring Rate']]
+        for item in data.income_stats['chart_data']:
+            income_data.append([
+                item['bracket'],
+                str(item['hired']),
+                str(item['not_hired']),
+                f"{item['rate']:.1f}%"
+            ])
+        
+        income_table = Table(income_data, colWidths=[1.5*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+        income_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#7B61FF')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(income_table)
+        story.append(Paragraph(f"<i>Disparity Level: {data.income_stats['disparity']*100:.1f}%</i>", styles['Normal']))
+        story.append(Spacer(1, 0.2*inch))
+    
+    # Bias Alerts
+    if data.bias_alerts:
+        story.append(Paragraph("Bias Alerts", heading_style))
+        for alert in data.bias_alerts:
+            story.append(Paragraph(f"• {alert}", styles['Normal']))
+            story.append(Spacer(1, 0.1*inch))
+    
+    # Insights
+    story.append(Spacer(1, 0.2*inch))
+    story.append(Paragraph("AI-Generated Insights & Recommendations", heading_style))
+    for insight in data.insights:
+        story.append(Paragraph(f"• {insight}", styles['Normal']))
+        story.append(Spacer(1, 0.1*inch))
+    
+    # Footer
+    story.append(Spacer(1, 0.5*inch))
+    footer_text = "<i>This report was generated by FairCheck AI - Building Fair and Ethical AI Systems</i>"
+    story.append(Paragraph(footer_text, styles['Normal']))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+def generate_csv_export(data: ExportRequest) -> str:
+    """
+    Generate CSV export from analysis data
+    """
+    rows = []
+    
+    # Summary section
+    rows.append(['FAIRCHECK AI - BIAS ANALYSIS REPORT'])
+    rows.append(['Generated', datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')])
+    rows.append([])
+    rows.append(['FAIRNESS SCORE', data.fairness_score])
+    rows.append([])
+    
+    # Gender Analysis
+    if data.gender_stats.get('chart_data'):
+        rows.append(['GENDER-BASED HIRING ANALYSIS'])
+        rows.append(['Gender', 'Hired', 'Not Hired', 'Hiring Rate (%)'])
+        for item in data.gender_stats['chart_data']:
+            rows.append([item['gender'], item['hired'], item['not_hired'], f"{item['rate']:.1f}"])
+        rows.append(['Disparity Level', f"{data.gender_stats['disparity']*100:.1f}%"])
+        rows.append([])
+    
+    # Income Analysis
+    if data.income_stats.get('chart_data'):
+        rows.append(['INCOME-BASED HIRING ANALYSIS'])
+        rows.append(['Income Bracket', 'Hired', 'Not Hired', 'Hiring Rate (%)'])
+        for item in data.income_stats['chart_data']:
+            rows.append([item['bracket'], item['hired'], item['not_hired'], f"{item['rate']:.1f}"])
+        rows.append(['Disparity Level', f"{data.income_stats['disparity']*100:.1f}%"])
+        rows.append([])
+    
+    # Bias Alerts
+    if data.bias_alerts:
+        rows.append(['BIAS ALERTS'])
+        for alert in data.bias_alerts:
+            rows.append([alert])
+        rows.append([])
+    
+    # Insights
+    rows.append(['AI-GENERATED INSIGHTS & RECOMMENDATIONS'])
+    for insight in data.insights:
+        rows.append([insight])
+    
+    # Convert to CSV string
+    output = io.StringIO()
+    import csv
+    writer = csv.writer(output)
+    writer.writerows(rows)
+    return output.getvalue()
+
 @api_router.get("/")
 async def root():
     return {"message": "FairCheck AI API"}
@@ -225,6 +430,44 @@ async def analyze_sample():
     await db.bias_analyses.insert_one(doc)
     
     return result
+
+@api_router.post("/export-pdf")
+async def export_pdf(data: ExportRequest):
+    """
+    Export analysis results as PDF
+    """
+    try:
+        pdf_bytes = generate_pdf_report(data)
+        
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=faircheck-analysis-{datetime.now().strftime('%Y%m%d-%H%M%S')}.pdf"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error generating PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating PDF: {str(e)}")
+
+@api_router.post("/export-csv")
+async def export_csv(data: ExportRequest):
+    """
+    Export analysis results as CSV
+    """
+    try:
+        csv_content = generate_csv_export(data)
+        
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=faircheck-analysis-{datetime.now().strftime('%Y%m%d-%H%M%S')}.csv"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error generating CSV: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating CSV: {str(e)}")
 
 app.include_router(api_router)
 

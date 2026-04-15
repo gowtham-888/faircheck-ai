@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Shield, TrendingUp, Users, AlertTriangle } from "lucide-react";
+import { Shield, TrendingUp, Users, AlertTriangle, Sparkles, Brain } from "lucide-react";
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -25,6 +25,27 @@ const HomePage = () => {
       icon: <AlertTriangle className="w-8 h-8" />,
       title: "Real-time Alerts",
       description: "Instant notifications when bias patterns are detected"
+    }
+  ];
+
+  const creators = [
+    {
+      name: "Gowtham K",
+      role: "Co-founder & Data Science Architect",
+      education: "Nagarjuna College of Engineering",
+      specialization: "Data Science & AI",
+      description: "Passionate about leveraging cutting-edge machine learning to solve real-world challenges. Aspiring to pioneer innovations in ethical AI and build scalable data-driven solutions that transform industries and create lasting impact in the tech ecosystem.",
+      icon: <Brain className="w-12 h-12" />,
+      color: "#00F5FF"
+    },
+    {
+      name: "Srushti B.S",
+      role: "Co-founder & Creative Strategist",
+      education: "Nagarjuna College of Engineering",
+      specialization: "Cyber Security",
+      description: "A visionary creative thinker with exceptional ability to distill complex technical concepts into compelling narratives. Master of persuasive communication and captivating presentations, bridging the gap between innovation and understanding with unparalleled clarity and impact.",
+      icon: <Sparkles className="w-12 h-12" />,
+      color: "#7B61FF"
     }
   ];
 
@@ -152,6 +173,72 @@ const HomePage = () => {
                 </h3>
                 <p className="text-base leading-relaxed text-slate-300">
                   {feature.description}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Creators Section */}
+      <section className="py-24 px-6 md:px-12 relative bg-gradient-to-b from-transparent to-[#0A0F1C]">
+        <motion.div 
+          className="max-w-6xl mx-auto"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          variants={containerVariants}
+        >
+          <motion.h2 
+            variants={itemVariants}
+            className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white text-center mb-4"
+          >
+            Meet the Innovators
+          </motion.h2>
+          <motion.p 
+            variants={itemVariants}
+            className="text-base sm:text-lg text-slate-300 text-center max-w-3xl mx-auto mb-16"
+          >
+            Brilliant minds driven by a vision to create ethical AI solutions for a fairer future
+          </motion.p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {creators.map((creator, index) => (
+              <motion.div
+                key={index}
+                variants={itemVariants}
+                className="glass-card p-8 hover:-translate-y-2 transition-all duration-300 group"
+              >
+                <div className="flex items-start gap-6 mb-6">
+                  <div 
+                    className="p-4 rounded-2xl transition-all duration-300 group-hover:scale-110"
+                    style={{ 
+                      backgroundColor: `${creator.color}20`,
+                      color: creator.color 
+                    }}
+                  >
+                    {creator.icon}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">
+                      {creator.name}
+                    </h3>
+                    <p 
+                      className="text-sm font-semibold mb-1"
+                      style={{ color: creator.color }}
+                    >
+                      {creator.role}
+                    </p>
+                    <p className="text-sm text-slate-400">
+                      {creator.education}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {creator.specialization}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-base leading-relaxed text-slate-300">
+                  {creator.description}
                 </p>
               </motion.div>
             ))}

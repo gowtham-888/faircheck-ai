@@ -7,6 +7,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import Dashboard from "@/components/Dashboard";
 import InsightsSection from "@/components/InsightsSection";
+import ExportSection from "@/components/ExportSection";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -234,6 +235,7 @@ const AnalysisPage = () => {
 
             <Dashboard data={analysisResult} />
             <InsightsSection insights={analysisResult.insights} alerts={analysisResult.bias_alerts} />
+            <ExportSection data={analysisResult} />
           </motion.div>
         )}
       </motion.div>

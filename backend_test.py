@@ -164,6 +164,119 @@ class FairCheckAPITester:
         )
         return success
 
+    def test_export_pdf_endpoint(self):
+        """Test PDF export functionality"""
+        # First get sample analysis data
+        success, analysis_data = self.run_test(
+            "Get Sample Analysis for PDF Export",
+            "POST",
+            "analyze-sample",
+            200
+        )
+        
+        if not success:
+            print("   ❌ Failed to get analysis data for PDF export")
+            return False
+        
+        # Prepare export data
+        export_data = {
+            "fairness_score": analysis_data["fairness_score"],
+            "gender_stats": analysis_data["gender_stats"],
+            "income_stats": analysis_data["income_stats"],
+            "bias_alerts": analysis_data["bias_alerts"],
+            "insights": analysis_data["insights"]
+        }
+        
+        # Test PDF export
+        url = f"{self.api_url}/export-pdf"
+        headers = {'Content-Type': 'application/json'}
+        
+        self.tests_run += 1
+        print(f"\n🔍 Testing PDF Export...")
+        
+        try:
+            response = requests.post(url, json=export_data, headers=headers)
+            
+            success = response.status_code == 200
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                print(f"   Content-Type: {response.headers.get('content-type', 'Unknown')}")
+                print(f"   Content-Length: {len(response.content)} bytes")
+                
+                # Check if it's actually a PDF
+                if response.content.startswith(b'%PDF'):
+                    print("   ✅ Valid PDF file generated")
+                    return True
+                else:
+                    print("   ❌ Response is not a valid PDF")
+                    return False
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                print(f"   Response: {response.text[:200]}...")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
+
+    def test_export_csv_endpoint(self):
+        """Test CSV export functionality"""
+        # First get sample analysis data
+        success, analysis_data = self.run_test(
+            "Get Sample Analysis for CSV Export",
+            "POST",
+            "analyze-sample",
+            200
+        )
+        
+        if not success:
+            print("   ❌ Failed to get analysis data for CSV export")
+            return False
+        
+        # Prepare export data
+        export_data = {
+            "fairness_score": analysis_data["fairness_score"],
+            "gender_stats": analysis_data["gender_stats"],
+            "income_stats": analysis_data["income_stats"],
+            "bias_alerts": analysis_data["bias_alerts"],
+            "insights": analysis_data["insights"]
+        }
+        
+        # Test CSV export
+        url = f"{self.api_url}/export-csv"
+        headers = {'Content-Type': 'application/json'}
+        
+        self.tests_run += 1
+        print(f"\n🔍 Testing CSV Export...")
+        
+        try:
+            response = requests.post(url, json=export_data, headers=headers)
+            
+            success = response.status_code == 200
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                print(f"   Content-Type: {response.headers.get('content-type', 'Unknown')}")
+                print(f"   Content-Length: {len(response.content)} bytes")
+                
+                # Check if it's valid CSV content
+                csv_content = response.text
+                if 'FAIRCHECK AI - BIAS ANALYSIS REPORT' in csv_content:
+                    print("   ✅ Valid CSV export generated")
+                    return True
+                else:
+                    print("   ❌ Response is not a valid CSV export")
+                    return False
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                print(f"   Response: {response.text[:200]}...")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
+
 def main():
     print("🚀 Starting FairCheck AI Backend API Tests")
     print("=" * 50)
@@ -177,7 +290,9 @@ def main():
         tester.test_sample_dataset_endpoint,
         tester.test_analyze_sample_endpoint,
         tester.test_csv_upload_endpoint,
-        tester.test_invalid_csv_upload
+        tester.test_invalid_csv_upload,
+        tester.test_export_pdf_endpoint,
+        tester.test_export_csv_endpoint
     ]
     
     for test in tests:
