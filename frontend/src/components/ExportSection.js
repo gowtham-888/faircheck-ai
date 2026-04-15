@@ -15,6 +15,8 @@ const ExportSection = ({ data }) => {
         fairness_score: data.fairness_score,
         gender_stats: data.gender_stats,
         income_stats: data.income_stats,
+        age_stats: data.age_stats,
+        education_stats: data.education_stats,
         bias_alerts: data.bias_alerts,
         insights: data.insights
       }, {
@@ -44,6 +46,8 @@ const ExportSection = ({ data }) => {
         fairness_score: data.fairness_score,
         gender_stats: data.gender_stats,
         income_stats: data.income_stats,
+        age_stats: data.age_stats,
+        education_stats: data.education_stats,
         bias_alerts: data.bias_alerts,
         insights: data.insights
       }, {

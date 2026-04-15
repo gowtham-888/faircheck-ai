@@ -1,9 +1,40 @@
+import { useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Shield, TrendingUp, Users, AlertTriangle, Sparkles, Brain } from "lucide-react";
+import { Shield, TrendingUp, Users, AlertTriangle, Sparkles, Brain, Play, History } from "lucide-react";
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const [walkthroughActive, setWalkthroughActive] = useState(false);
+
+  const startWalkthrough = useCallback(async () => {
+    setWalkthroughActive(true);
+    const delay = (ms) => new Promise(r => setTimeout(r, ms));
+    const scrollTo = (y) => window.scrollTo({ top: y, behavior: 'smooth' });
+
+    // Scroll through sections
+    scrollTo(0);
+    await delay(2000);
+
+    // Features
+    const featuresEl = document.getElementById('features-section');
+    if (featuresEl) featuresEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await delay(2500);
+
+    // Creators
+    const creatorsEl = document.getElementById('creators-section');
+    if (creatorsEl) creatorsEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await delay(2500);
+
+    // About
+    const aboutEl = document.getElementById('about-section');
+    if (aboutEl) aboutEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await delay(2000);
+
+    // Navigate to analysis with demo
+    setWalkthroughActive(false);
+    navigate('/analysis?demo=true');
+  }, [navigate]);
 
   const features = [
     {
@@ -128,6 +159,27 @@ const HomePage = () => {
               Try Demo
             </button>
           </motion.div>
+
+          <motion.div variants={itemVariants} className="flex flex-wrap gap-4 justify-center items-center mt-8">
+            <button
+              data-testid="walkthrough-btn"
+              onClick={startWalkthrough}
+              disabled={walkthroughActive}
+              className="flex items-center gap-2 text-sm text-[#00F5FF]/70 hover:text-[#00F5FF] transition-colors"
+            >
+              <Play className="w-4 h-4" />
+              {walkthroughActive ? 'Walkthrough in progress...' : 'Start Live Walkthrough'}
+            </button>
+            <span className="text-slate-600">|</span>
+            <button
+              data-testid="hero-history-btn"
+              onClick={() => navigate('/history')}
+              className="flex items-center gap-2 text-sm text-slate-400 hover:text-[#7B61FF] transition-colors"
+            >
+              <History className="w-4 h-4" />
+              View Analysis History
+            </button>
+          </motion.div>
         </motion.div>
 
         {/* Scroll Indicator */}
@@ -143,7 +195,7 @@ const HomePage = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-24 px-6 md:px-12 relative">
+      <section id="features-section" className="py-24 px-6 md:px-12 relative">
         <motion.div 
           className="max-w-6xl mx-auto"
           initial="hidden"
@@ -181,7 +233,7 @@ const HomePage = () => {
       </section>
 
       {/* Creators Section */}
-      <section className="py-24 px-6 md:px-12 relative bg-gradient-to-b from-transparent to-[#0A0F1C]">
+      <section id="creators-section" className="py-24 px-6 md:px-12 relative bg-gradient-to-b from-transparent to-[#0A0F1C]">
         <motion.div 
           className="max-w-6xl mx-auto"
           initial="hidden"
@@ -247,7 +299,7 @@ const HomePage = () => {
       </section>
 
       {/* About Section */}
-      <section className="py-24 px-6 md:px-12 relative">
+      <section id="about-section" className="py-24 px-6 md:px-12 relative">
         <div 
           className="absolute inset-0 z-0 opacity-20"
           style={{

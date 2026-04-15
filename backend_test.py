@@ -10,6 +10,7 @@ class FairCheckAPITester:
         self.api_url = f"{base_url}/api"
         self.tests_run = 0
         self.tests_passed = 0
+        self.analysis_id = None  # Store analysis ID for history tests
 
     def run_test(self, name, method, endpoint, expected_status, data=None, files=None):
         """Run a single API test"""
@@ -85,13 +86,18 @@ class FairCheckAPITester:
             200
         )
         if success:
-            # Validate analysis result structure
-            required_fields = ['fairness_score', 'gender_stats', 'income_stats', 'bias_alerts', 'insights']
+            # Validate analysis result structure - including NEW age and education stats
+            required_fields = ['fairness_score', 'gender_stats', 'income_stats', 'age_stats', 'education_stats', 'bias_alerts', 'insights', 'id']
             missing_fields = [field for field in required_fields if field not in response]
             if not missing_fields:
                 print(f"   ✅ Fairness Score: {response['fairness_score']}")
                 print(f"   ✅ Bias Alerts: {len(response['bias_alerts'])} alerts")
                 print(f"   ✅ Insights: {len(response['insights'])} insights")
+                print(f"   ✅ Age Stats: {len(response['age_stats'].get('chart_data', []))} age brackets")
+                print(f"   ✅ Education Stats: {len(response['education_stats'].get('chart_data', []))} education levels")
+                print(f"   ✅ Analysis ID: {response['id']}")
+                # Store the analysis ID for later tests
+                self.analysis_id = response['id']
                 return True
             else:
                 print(f"   ❌ Missing fields: {missing_fields}")
@@ -183,6 +189,8 @@ class FairCheckAPITester:
             "fairness_score": analysis_data["fairness_score"],
             "gender_stats": analysis_data["gender_stats"],
             "income_stats": analysis_data["income_stats"],
+            "age_stats": analysis_data.get("age_stats", {}),
+            "education_stats": analysis_data.get("education_stats", {}),
             "bias_alerts": analysis_data["bias_alerts"],
             "insights": analysis_data["insights"]
         }
@@ -239,6 +247,8 @@ class FairCheckAPITester:
             "fairness_score": analysis_data["fairness_score"],
             "gender_stats": analysis_data["gender_stats"],
             "income_stats": analysis_data["income_stats"],
+            "age_stats": analysis_data.get("age_stats", {}),
+            "education_stats": analysis_data.get("education_stats", {}),
             "bias_alerts": analysis_data["bias_alerts"],
             "insights": analysis_data["insights"]
         }
@@ -277,6 +287,59 @@ class FairCheckAPITester:
             print(f"❌ Failed - Error: {str(e)}")
             return False
 
+    def test_analysis_history_endpoint(self):
+        """Test analysis history endpoint - NEW FEATURE"""
+        success, response = self.run_test(
+            "Analysis History Endpoint",
+            "GET",
+            "analysis-history",
+            200
+        )
+        if success:
+            print(f"   ✅ History contains {len(response)} analyses")
+            if len(response) > 0:
+                # Check structure of first history item
+                first_item = response[0]
+                required_fields = ['id', 'fairness_score', 'bias_alerts', 'timestamp']
+                missing_fields = [field for field in required_fields if field not in first_item]
+                if not missing_fields:
+                    print(f"   ✅ Latest analysis score: {first_item['fairness_score']}")
+                    print(f"   ✅ Latest analysis timestamp: {first_item['timestamp']}")
+                    return True
+                else:
+                    print(f"   ❌ Missing fields in history item: {missing_fields}")
+                    return False
+            else:
+                print("   ⚠️  No history items found (this might be expected for first run)")
+                return True
+        return False
+
+    def test_get_analysis_by_id_endpoint(self):
+        """Test get specific analysis by ID endpoint - NEW FEATURE"""
+        if not self.analysis_id:
+            print("   ❌ No analysis ID available from previous test")
+            return False
+            
+        success, response = self.run_test(
+            f"Get Analysis by ID ({self.analysis_id})",
+            "GET",
+            f"analysis/{self.analysis_id}",
+            200
+        )
+        if success:
+            # Validate full analysis structure
+            required_fields = ['fairness_score', 'gender_stats', 'income_stats', 'age_stats', 'education_stats', 'bias_alerts', 'insights']
+            missing_fields = [field for field in required_fields if field not in response]
+            if not missing_fields:
+                print(f"   ✅ Retrieved analysis with score: {response['fairness_score']}")
+                print(f"   ✅ Age stats available: {len(response['age_stats'].get('chart_data', []))} brackets")
+                print(f"   ✅ Education stats available: {len(response['education_stats'].get('chart_data', []))} levels")
+                return True
+            else:
+                print(f"   ❌ Missing fields: {missing_fields}")
+                return False
+        return False
+
 def main():
     print("🚀 Starting FairCheck AI Backend API Tests")
     print("=" * 50)
@@ -289,6 +352,8 @@ def main():
         tester.test_root_endpoint,
         tester.test_sample_dataset_endpoint,
         tester.test_analyze_sample_endpoint,
+        tester.test_analysis_history_endpoint,
+        tester.test_get_analysis_by_id_endpoint,
         tester.test_csv_upload_endpoint,
         tester.test_invalid_csv_upload,
         tester.test_export_pdf_endpoint,

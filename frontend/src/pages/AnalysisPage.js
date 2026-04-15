@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Upload, FileUp, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, FileUp, Loader2, History } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import axios from "axios";
 import { toast } from "sonner";
@@ -115,6 +115,14 @@ const AnalysisPage = () => {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
             FairCheck <span className="text-[#00F5FF]">AI</span>
           </h1>
+          <button
+            data-testid="history-link-btn"
+            onClick={() => navigate('/history')}
+            className="flex items-center gap-2 text-slate-300 hover:text-[#7B61FF] transition-colors"
+          >
+            <History className="w-5 h-5" />
+            <span className="font-semibold hidden sm:inline">History</span>
+          </button>
         </div>
       </header>
 
