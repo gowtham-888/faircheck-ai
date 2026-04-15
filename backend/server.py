@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException
+from fastapi import FastAPI, APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -57,6 +57,15 @@ class ExportRequest(BaseModel):
     education_stats: Optional[Dict[str, Any]] = None
     bias_alerts: List[str]
     insights: List[str]
+
+class ColumnMappingRequest(BaseModel):
+    csv_content: str
+    mapping: Dict[str, str]  # {standard_col: user_col} e.g. {"Hired": "selected", "Gender": "sex"}
+
+class ColumnDetectResponse(BaseModel):
+    columns: List[str]
+    suggested_mapping: Dict[str, str]
+    needs_mapping: bool
 
 class HistoryItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -417,6 +426,88 @@ async def export_csv_endpoint(data: ExportRequest):
     except Exception as e:
         logger.error(f"Error generating CSV: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error generating CSV: {str(e)}")
+
+@api_router.get("/download-sample-csv")
+async def download_sample_csv():
+    """Download sample dataset as a CSV file"""
+    sample_response = await get_sample_dataset()
+    df = pd.DataFrame(sample_response.data)
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
+    return Response(
+        content=csv_buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=faircheck-sample-dataset.csv"}
+    )
+
+@api_router.post("/detect-columns", response_model=ColumnDetectResponse)
+async def detect_columns(file: UploadFile = File(...)):
+    """Read CSV headers and suggest column mapping"""
+    try:
+        contents = await file.read()
+        df = pd.read_csv(io.BytesIO(contents), nrows=0)
+        user_cols = list(df.columns)
+
+        standard_cols = {"Hired": None, "Gender": None, "Income": None, "Age": None, "Education": None}
+        # Auto-detect by matching names (case-insensitive)
+        for std in standard_cols:
+            for uc in user_cols:
+                if uc.lower().strip() == std.lower():
+                    standard_cols[std] = uc
+                    break
+                # Common synonyms
+                synonyms = {
+                    "Hired": ["hired", "selected", "accepted", "outcome", "result", "decision", "status"],
+                    "Gender": ["gender", "sex", "male_female", "m_f"],
+                    "Income": ["income", "salary", "pay", "wage", "compensation", "earnings"],
+                    "Age": ["age", "years", "candidate_age"],
+                    "Education": ["education", "degree", "qualification", "edu_level", "academic"]
+                }
+                if uc.lower().strip() in synonyms.get(std, []):
+                    standard_cols[std] = uc
+                    break
+
+        suggested = {k: v for k, v in standard_cols.items() if v is not None}
+        needs_mapping = "Hired" not in suggested
+
+        return ColumnDetectResponse(
+            columns=user_cols,
+            suggested_mapping=suggested,
+            needs_mapping=needs_mapping
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error reading CSV: {str(e)}")
+
+@api_router.post("/analyze-mapped", response_model=BiasAnalysisResult)
+async def analyze_with_mapping(file: UploadFile = File(...), mapping: str = Form("")):
+    """Analyze CSV with custom column mapping (mapping is JSON string)"""
+    import json as json_mod
+    try:
+        contents = await file.read()
+        df = pd.read_csv(io.BytesIO(contents))
+
+        if mapping:
+            col_map = json_mod.loads(mapping)
+            # Rename columns: {standard_name: user_column_name}
+            reverse_map = {v: k for k, v in col_map.items() if v}
+            df = df.rename(columns=reverse_map)
+
+        if 'Hired' not in df.columns:
+            raise HTTPException(status_code=400, detail="No 'Hired' column mapped. Please map at least the Hired column.")
+
+        # Ensure Hired is numeric
+        df['Hired'] = pd.to_numeric(df['Hired'], errors='coerce').fillna(0).astype(int)
+
+        result = analyze_bias(df)
+        doc = result.model_dump()
+        doc['timestamp'] = doc['timestamp'].isoformat()
+        await db.bias_analyses.insert_one(doc)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error analyzing mapped CSV: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error analyzing CSV: {str(e)}")
 
 app.include_router(api_router)
 
